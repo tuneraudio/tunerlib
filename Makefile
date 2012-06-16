@@ -2,7 +2,7 @@ OUT = tuner.so
 SRC = ${wildcard math/*.c}
 OBJ = ${SRC:.c=.o}
 
-CFLAGS:=-std=gnu99 \
+CFLAGS:=-std=gnu99 -Iinclude \
 	-Wall -Wextra -pedantic -fPIC \
 	${CFLAGS}
 

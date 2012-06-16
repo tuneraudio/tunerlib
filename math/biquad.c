@@ -1,31 +1,13 @@
+#include "math/biquad.h"
+
 #include <stdlib.h>
 #include <errno.h>
 #include <math.h>
 
-#define MALLOC(p, s, action) do { p = calloc(1, s); if(!p) { action; } } while(0)
-
-typedef double smp_t;
-
-/* filter types */
-typedef enum {
-    FILTER_LOW_PASS,
-    FILTER_HIGH_PASS,
-    FILTER_BAND_PASS,
-    FILTER_NOTCH,
-    FILTER_PEAKING_BAND,
-    FILTER_LOW_SHELF,
-    FILTER_HIGH_SHELL,
-    LAST_FILTER
-} filter_type_t;
-
-/* filter representation */
-typedef struct filter {
-    filter_type_t type;
-    smp_t gain;         /* gain in dB */
-    smp_t fc;           /* cut off / center frequency */
-    smp_t fs;           /* sample rate */
-    smp_t bw;           /* bandwidth in octaves */
-} filter_t;
+struct biquad {
+    smp_t b0, b1, b2, a1, a2;
+    smp_t x1, x2, y1, y2;
+};
 
 typedef struct {
     smp_t a0, a1, a2, b0, b1, b2;
@@ -40,11 +22,6 @@ static void high_pass(smp_t cs, smp_t alpha, smp_t A, f_t *data);
 /* void peaking_band(smp_t cs, smp_t alpha, smp_t A, f_t *data); */
 /* void low_shelf(smp_t cs, smp_t alpha, smp_t A, f_t *data); */
 /* void high_shelf(smp_t cs, smp_t alpha, smp_t A, f_t *data); */
-
-typedef struct biquad {
-    smp_t b0, b1, b2, a1, a2;
-    smp_t x1, x2, y1, y2;
-} biquad_t;
 
 smp_t
 df1(smp_t sample, biquad_t *b)
