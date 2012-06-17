@@ -10,37 +10,25 @@ struct biquad {
     smp_t x1, x2, y1, y2;
 };
 
-typedef void (* filter_cb)(biquad_t *b, smp_t cs, smp_t alpha, smp_t A);
-
-static void low_pass(biquad_t *b, smp_t cs, smp_t alpha, smp_t A);
-static void high_pass(biquad_t *b, smp_t cs, smp_t alpha, smp_t A);
-/* void band_pass(smp_t cs, smp_t alpha, smp_t A, f_t *data); */
-/* void notch(smp_t cs, smp_t alpha, smp_t A, f_t *data); */
-/* void peaking_band(smp_t cs, smp_t alpha, smp_t A, f_t *data); */
-/* void low_shelf(smp_t cs, smp_t alpha, smp_t A, f_t *data); */
-/* void high_shelf(smp_t cs, smp_t alpha, smp_t A, f_t *data); */
-
-static filter_cb filters[LAST_FILTER] = {
-    [FILTER_LOW_PASS ] = low_pass,
-    [FILTER_HIGH_PASS] = high_pass,
-    NULL
-};
+typedef void (* filter_fn)(biquad_t *, smp_t, smp_t, smp_t, smp_t, smp_t);
+static filter_fn filters[LAST_FILTER];
 
 int
-biquad_compute(biquad_t *b, filter_t *filter)
+biquad_compute(biquad_t *b, filter_t *f)
 {
-    if (!filters[filter->type])
+    filter_fn filter = filters[f->type];
+    if (!filter)
         return -EINVAL;
 
-    smp_t A     = pow(10, filter->gain / 40);
-    smp_t omega = 2 * M_PI * filter->fc / filter->fs;
+    smp_t A     = pow(10, f->gain / 40);
+    smp_t omega = 2 * M_PI * f->fc / f->fs;
     smp_t sn    = sin(omega);
     smp_t cs    = cos(omega);
-    smp_t alpha = sn * sinh(M_LN2 / 2 * filter->bw * omega / sn);
+    smp_t alpha = sn * sinh(M_LN2 / 2 * f->bw * omega / sn);
     smp_t beta  = sqrt(A + A);
 
     /* apply the filter */
-    filters[filter->type](b, cs, alpha, A);
+    filter(b, A, sn, cs, alpha, beta);
 
     /* precompute the coefficients */
     b->a1 /= b->a0;
@@ -76,9 +64,15 @@ df1(smp_t sample, biquad_t *b)
 }
 
 /* FILTER IMPLEMENTATIONS {{{ */
+#define UNUSED(x) (void)(x)
+
 void
-low_pass(biquad_t *b, smp_t cs, smp_t alpha, smp_t A)
+low_pass(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
 {
+    UNUSED(A);
+    UNUSED(sn);
+    UNUSED(beta);
+
     b->b0 = (1 - cs) / 2;
     b->b1 =  1 - cs;
     b->b2 = (1 - cs) / 2;
@@ -88,8 +82,12 @@ low_pass(biquad_t *b, smp_t cs, smp_t alpha, smp_t A)
 }
 
 void
-high_pass(biquad_t *b, smp_t cs, smp_t alpha, smp_t A)
+high_pass(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
 {
+    UNUSED(A);
+    UNUSED(sn);
+    UNUSED(beta);
+
     b->b0 =  (1 + cs) / 2;
     b->b1 = -(1 + cs);
     b->b2 =  (1 + cs) / 2;
@@ -97,6 +95,87 @@ high_pass(biquad_t *b, smp_t cs, smp_t alpha, smp_t A)
     b->a1 =  -2 * cs;
     b->a2 =   1 - alpha;
 }
+
+void
+band_pass(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
+{
+    UNUSED(A);
+    UNUSED(sn);
+    UNUSED(beta);
+
+    b->b0 =  alpha;
+    b->b1 =  0;
+    b->b2 = -alpha;
+    b->a0 =  1 + alpha;
+    b->a1 = -2 * cs;
+    b->a2 =  1 - alpha;
+}
+
+void
+notch(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
+{
+    UNUSED(A);
+    UNUSED(sn);
+    UNUSED(beta);
+
+    b->b0 =  1;
+    b->b1 = -2 * cs;
+    b->b2 =  1;
+    b->a0 =  1 + alpha;
+    b->a1 = -2 * cs;
+    b->a2 =  1 - alpha;
+}
+
+void
+peaking_band(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
+{
+    UNUSED(sn);
+    UNUSED(beta);
+
+    b->b0 =  1 + (alpha * A);
+    b->b1 = -2 * cs;
+    b->b2 =  1 - (alpha * A);
+    b->a0 =  1 + (alpha / A);
+    b->a1 = -2 * cs;
+    b->a2 =  1 - (alpha / A);
+}
+
+void
+low_shelf(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
+{
+    UNUSED(alpha);
+
+    b->b0 =  A * ((A + 1) - (A - 1) * cs + beta * sn);
+    b->b1 =  2 * A * ((A - 1) - (A + 1) * cs);
+    b->b2 =  A * ((A + 1) - (A - 1) * cs - beta * sn);
+    b->a0 = (A + 1) + (A - 1) * cs + beta * sn;
+    b->a1 = -2 * ((A - 1) + (A + 1) * cs);
+    b->a2 = (A + 1) + (A - 1) * cs - beta * sn;
+}
+
+void
+high_shelf(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
+{
+    UNUSED(alpha);
+
+    b->b0 =  A * ((A + 1) + (A - 1) * cs + beta * sn);
+    b->b1 = -2 * A * ((A - 1) + (A + 1) * cs);
+    b->b2 =  A * ((A + 1) + (A - 1) * cs - beta * sn);
+    b->a0 = (A + 1) - (A - 1) * cs + beta * sn;
+    b->a1 =  2 * ((A - 1) - (A + 1) * cs);
+    b->a2 = (A + 1) - (A - 1) * cs - beta * sn;
+}
+
+static filter_fn filters[LAST_FILTER] = {
+    [FILTER_LOW_PASS]     = low_pass,
+    [FILTER_HIGH_PASS]    = high_pass,
+    [FILTER_BAND_PASS]    = band_pass,
+    [FILTER_NOTCH]        = notch,
+    [FILTER_PEAKING_BAND] = peaking_band,
+    [FILTER_LOW_SHELF]    = low_shelf,
+    [FILTER_HIGH_SHELL]   = high_shelf,
+};
+
 /* }}} */
 
 // vim: et:sts=4:sw=4:cino=(0

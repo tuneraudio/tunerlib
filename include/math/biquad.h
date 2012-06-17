@@ -1,6 +1,8 @@
 #ifndef TUNER_BIQUAD_H
 #define TUNER_BIQUAD_H
 
+#include "../common.h"
+
 typedef double smp_t;
 
 /* filter types */
