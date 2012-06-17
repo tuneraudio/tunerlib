@@ -10,10 +10,6 @@ struct biquad {
     smp_t x1, x2, y1, y2;
 };
 
-typedef struct {
-    smp_t a0, a1, a2, b0, b1, b2;
-} f_t;
-
 typedef void (* filter_cb)(biquad_t *b, smp_t cs, smp_t alpha, smp_t A);
 
 static void low_pass(biquad_t *b, smp_t cs, smp_t alpha, smp_t A);
@@ -36,14 +32,12 @@ biquad_compute(biquad_t *b, filter_t *filter)
     if (!filters[filter->type])
         return -EINVAL;
 
-    smp_t A, omega, sn, cs, alpha, beta;
-
-    A = pow(10, filter->gain / 40);
-    omega = 2 * M_PI * filter->fc / filter->fs;
-    sn = sin(omega);
-    cs = cos(omega);
-    alpha = sn * sinh(M_LN2 / 2 * filter->bw * omega / sn);
-    beta = sqrt(A + A);
+    smp_t A     = pow(10, filter->gain / 40);
+    smp_t omega = 2 * M_PI * filter->fc / filter->fs;
+    smp_t sn    = sin(omega);
+    smp_t cs    = cos(omega);
+    smp_t alpha = sn * sinh(M_LN2 / 2 * filter->bw * omega / sn);
+    smp_t beta  = sqrt(A + A);
 
     /* apply the filter */
     filters[filter->type](b, cs, alpha, A);
