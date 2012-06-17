@@ -5,7 +5,8 @@
 #include <math.h>
 
 struct biquad {
-    smp_t b0, b1, b2, a1, a2;
+    smp_t a0, a1, a2;
+    smp_t b0, b1, b2;
     smp_t x1, x2, y1, y2;
 };
 
@@ -13,15 +14,53 @@ typedef struct {
     smp_t a0, a1, a2, b0, b1, b2;
 } f_t;
 
-typedef void (* filter_cb)(smp_t cs, smp_t alpha, smp_t A, f_t *data);
+typedef void (* filter_cb)(biquad_t *b, smp_t cs, smp_t alpha, smp_t A);
 
-static void low_pass(smp_t cs, smp_t alpha, smp_t A, f_t *data);
-static void high_pass(smp_t cs, smp_t alpha, smp_t A, f_t *data);
+static void low_pass(biquad_t *b, smp_t cs, smp_t alpha, smp_t A);
+static void high_pass(biquad_t *b, smp_t cs, smp_t alpha, smp_t A);
 /* void band_pass(smp_t cs, smp_t alpha, smp_t A, f_t *data); */
 /* void notch(smp_t cs, smp_t alpha, smp_t A, f_t *data); */
 /* void peaking_band(smp_t cs, smp_t alpha, smp_t A, f_t *data); */
 /* void low_shelf(smp_t cs, smp_t alpha, smp_t A, f_t *data); */
 /* void high_shelf(smp_t cs, smp_t alpha, smp_t A, f_t *data); */
+
+static filter_cb filters[LAST_FILTER] = {
+    [FILTER_LOW_PASS ] = low_pass,
+    [FILTER_HIGH_PASS] = high_pass,
+    NULL
+};
+
+int
+biquad_compute(biquad_t *b, filter_t *filter)
+{
+    if (!filters[filter->type])
+        return -EINVAL;
+
+    smp_t A, omega, sn, cs, alpha, beta;
+
+    A = pow(10, filter->gain / 40);
+    omega = 2 * M_PI * filter->fc / filter->fs;
+    sn = sin(omega);
+    cs = cos(omega);
+    alpha = sn * sinh(M_LN2 / 2 * filter->bw * omega / sn);
+    beta = sqrt(A + A);
+
+    /* apply the filter */
+    filters[filter->type](b, cs, alpha, A);
+
+    /* precompute the coefficients */
+    b->a1 /= b->a0;
+    b->a2 /= b->a0;
+    b->b0 /= b->a0;
+    b->b1 /= b->a0;
+    b->b2 /= b->a0;
+
+    /* initial sample */
+    b->x1 = b->x2 = 0;
+    b->y1 = b->y2 = 0;
+
+    return 0;
+}
 
 smp_t
 df1(smp_t sample, biquad_t *b)
@@ -42,65 +81,28 @@ df1(smp_t sample, biquad_t *b)
     return ret;
 }
 
+/* FILTER IMPLEMENTATIONS {{{ */
 void
-low_pass(smp_t cs, smp_t alpha, smp_t A, f_t *data)
+low_pass(biquad_t *b, smp_t cs, smp_t alpha, smp_t A)
 {
-    data->b0 = (1 - cs) / 2;
-    data->b1 =  1 - cs;
-    data->b2 = (1 - cs) / 2;
-    data->a0 =  1 + alpha;
-    data->a1 = -2 * cs;
-    data->a2 =  1 - alpha;
+    b->b0 = (1 - cs) / 2;
+    b->b1 =  1 - cs;
+    b->b2 = (1 - cs) / 2;
+    b->a0 =  1 + alpha;
+    b->a1 = -2 * cs;
+    b->a2 =  1 - alpha;
 }
 
 void
-high_pass(smp_t cs, smp_t alpha, smp_t A, f_t *data)
+high_pass(biquad_t *b, smp_t cs, smp_t alpha, smp_t A)
 {
-    data->b0 =  (1 + cs) / 2;
-    data->b1 = -(1 + cs);
-    data->b2 =  (1 + cs) / 2;
-    data->a0 =   1 + alpha;
-    data->a1 =  -2 * cs;
-    data->a2 =   1 - alpha;
+    b->b0 =  (1 + cs) / 2;
+    b->b1 = -(1 + cs);
+    b->b2 =  (1 + cs) / 2;
+    b->a0 =   1 + alpha;
+    b->a1 =  -2 * cs;
+    b->a2 =   1 - alpha;
 }
-
-static filter_cb filters[LAST_FILTER] = {
-    [FILTER_LOW_PASS ] = low_pass,
-    [FILTER_HIGH_PASS] = high_pass,
-    NULL
-};
-
-int
-biquad_compute(biquad_t *b, filter_t *filter)
-{
-    if (!filters[filter->type])
-        return -EINVAL;
-
-    smp_t A, omega, sn, cs, alpha, beta;
-    f_t data;
-
-    A = pow(10, filter->gain / 40);
-    omega = 2 * M_PI * filter->fc / filter->fs;
-    sn = sin(omega);
-    cs = cos(omega);
-    alpha = sn * sinh(M_LN2 / 2 * filter->bw * omega / sn);
-    beta = sqrt(A + A);
-
-    /* apply the filter */
-    filters[filter->type](cs, alpha, A, &data);
-
-    /* precompute the coefficients */
-    b->b0 = data.b0 / data.a0;
-    b->b1 = data.b1 / data.a0;
-    b->b2 = data.b2 / data.a0;
-    b->a1 = data.a1 / data.a0;
-    b->a2 = data.a2 / data.a0;
-
-    /* initial sample */
-    b->x1 = b->x2 = 0;
-    b->y1 = b->y2 = 0;
-
-    return 0;
-}
+/* }}} */
 
 // vim: et:sts=4:sw=4:cino=(0
