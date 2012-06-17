@@ -175,7 +175,6 @@ static filter_fn filters[LAST_FILTER] = {
     [FILTER_LOW_SHELF]    = low_shelf,
     [FILTER_HIGH_SHELL]   = high_shelf,
 };
-
 /* }}} */
 
 // vim: et:sts=4:sw=4:cino=(0

@@ -1,8 +1,6 @@
 #ifndef TUNER_BIQUAD_H
 #define TUNER_BIQUAD_H
 
-#include "../common.h"
-
 typedef double smp_t;
 
 /* filter types */
@@ -29,6 +27,6 @@ typedef struct filter {
 typedef struct biquad biquad_t;
 
 smp_t df1(smp_t sample, biquad_t *b);
-int biquad_compute(biquad_t *b, filter_t *filter);
+int biquad_compute(biquad_t *b, filter_t *f);
 
 #endif
