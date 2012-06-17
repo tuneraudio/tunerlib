@@ -75,7 +75,7 @@ low_pass(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
 
     b->b0 = (1 - cs) / 2;
     b->b1 =  1 - cs;
-    b->b2 = (1 - cs) / 2;
+    b->b2 =  b->b0;
     b->a0 =  1 + alpha;
     b->a1 = -2 * cs;
     b->a2 =  1 - alpha;
@@ -88,12 +88,12 @@ high_pass(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
     UNUSED(sn);
     UNUSED(beta);
 
-    b->b0 =  (1 + cs) / 2;
-    b->b1 = -(1 + cs);
-    b->b2 =  (1 + cs) / 2;
-    b->a0 =   1 + alpha;
-    b->a1 =  -2 * cs;
-    b->a2 =   1 - alpha;
+    b->b0 = (1 + cs) / 2;
+    b->b1 = -1 - cs;
+    b->b2 =  b->b0;
+    b->a0 =  1 + alpha;
+    b->a1 = -2 * cs;
+    b->a2 =  1 - alpha;
 }
 
 void
@@ -122,7 +122,7 @@ notch(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
     b->b1 = -2 * cs;
     b->b2 =  1;
     b->a0 =  1 + alpha;
-    b->a1 = -2 * cs;
+    b->a1 =  b->b1;
     b->a2 =  1 - alpha;
 }
 
@@ -132,12 +132,12 @@ peaking_band(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
     UNUSED(sn);
     UNUSED(beta);
 
-    b->b0 =  1 + (alpha * A);
+    b->b0 =  1 + alpha * A;
     b->b1 = -2 * cs;
-    b->b2 =  1 - (alpha * A);
-    b->a0 =  1 + (alpha / A);
-    b->a1 = -2 * cs;
-    b->a2 =  1 - (alpha / A);
+    b->b2 =  1 - alpha * A;
+    b->a0 =  1 + alpha / A;
+    b->a1 =  b->b1;
+    b->a2 =  1 - alpha / A;
 }
 
 void
@@ -145,12 +145,12 @@ low_shelf(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
 {
     UNUSED(alpha);
 
-    b->b0 =  A * ((A + 1) - (A - 1) * cs + beta * sn);
-    b->b1 =  2 * A * ((A - 1) - (A + 1) * cs);
-    b->b2 =  A * ((A + 1) - (A - 1) * cs - beta * sn);
-    b->a0 = (A + 1) + (A - 1) * cs + beta * sn;
-    b->a1 = -2 * ((A - 1) + (A + 1) * cs);
-    b->a2 = (A + 1) + (A - 1) * cs - beta * sn;
+    b->b0 =  A * (A + 1 - (A - 1) * cs + beta * sn);
+    b->b1 =  2 * A * (A - 1 - (A + 1) * cs);
+    b->b2 =  A * (A + 1 - (A - 1) * cs - beta * sn);
+    b->a0 =  A + 1 + (A - 1) * cs + beta * sn;
+    b->a1 = -2 * (A - 1 + (A + 1) * cs);
+    b->a2 =  a->a0;
 }
 
 void
@@ -158,12 +158,12 @@ high_shelf(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
 {
     UNUSED(alpha);
 
-    b->b0 =  A * ((A + 1) + (A - 1) * cs + beta * sn);
-    b->b1 = -2 * A * ((A - 1) + (A + 1) * cs);
-    b->b2 =  A * ((A + 1) + (A - 1) * cs - beta * sn);
-    b->a0 = (A + 1) - (A - 1) * cs + beta * sn;
-    b->a1 =  2 * ((A - 1) - (A + 1) * cs);
-    b->a2 = (A + 1) - (A - 1) * cs - beta * sn;
+    b->b0 =  A * (A + 1 + (A - 1) * cs + beta * sn);
+    b->b1 = -2 * A * (A - 1 + (A + 1) * cs);
+    b->b2 =  A * (A + 1 + (A - 1) * cs - beta * sn);
+    b->a0 =  A + 1 - (A - 1) * cs + beta * sn;
+    b->a1 =  2 * (A - 1 - (A + 1) * cs);
+    b->a2 =  a->a0;
 }
 
 static filter_fn filters[LAST_FILTER] = {
