@@ -13,8 +13,17 @@ struct biquad {
 typedef void (* filter_fn)(biquad_t *, smp_t, smp_t, smp_t, smp_t, smp_t);
 static filter_fn filters[LAST_FILTER];
 
+biquad_t *
+biquad_new(filter_t *f)
+{
+    biquad_t *b = malloc(sizeof(biquad_t));
+    if (!b) return NULL;
+    if (f)  biquad_init(b, f);
+    return b;
+}
+
 int
-biquad_compute(biquad_t *b, filter_t *f)
+biquad_init(biquad_t *b, filter_t *f)
 {
     filter_fn filter = filters[f->type];
     if (!filter)
@@ -150,7 +159,7 @@ low_shelf(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
     b->b2 =  A * (A + 1 - (A - 1) * cs - beta * sn);
     b->a0 =  A + 1 + (A - 1) * cs + beta * sn;
     b->a1 = -2 * (A - 1 + (A + 1) * cs);
-    b->a2 =  a->a0;
+    b->a2 =  b->a0;
 }
 
 void
@@ -163,7 +172,7 @@ high_shelf(biquad_t *b, smp_t A, smp_t sn, smp_t cs, smp_t alpha, smp_t beta)
     b->b2 =  A * (A + 1 + (A - 1) * cs - beta * sn);
     b->a0 =  A + 1 - (A - 1) * cs + beta * sn;
     b->a1 =  2 * (A - 1 - (A + 1) * cs);
-    b->a2 =  a->a0;
+    b->a2 =  b->a0;
 }
 
 static filter_fn filters[LAST_FILTER] = {
@@ -173,7 +182,7 @@ static filter_fn filters[LAST_FILTER] = {
     [FILTER_NOTCH]        = notch,
     [FILTER_PEAKING_BAND] = peaking_band,
     [FILTER_LOW_SHELF]    = low_shelf,
-    [FILTER_HIGH_SHELL]   = high_shelf,
+    [FILTER_HIGH_SHELF]   = high_shelf,
 };
 /* }}} */
 

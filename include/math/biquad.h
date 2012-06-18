@@ -11,7 +11,7 @@ typedef enum {
     FILTER_NOTCH,
     FILTER_PEAKING_BAND,
     FILTER_LOW_SHELF,
-    FILTER_HIGH_SHELL,
+    FILTER_HIGH_SHELF,
     LAST_FILTER
 } filter_type_t;
 
@@ -26,7 +26,9 @@ typedef struct filter {
 
 typedef struct biquad biquad_t;
 
+biquad_t *biquad_new(filter_t *f);
+int biquad_init(biquad_t *b, filter_t *f);
+
 smp_t df1(smp_t sample, biquad_t *b);
-int biquad_compute(biquad_t *b, filter_t *f);
 
 #endif
